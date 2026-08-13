@@ -1,0 +1,57 @@
+name: Naukri Auto Job Applier
+
+on:
+  schedule:
+    # Runs at 09:00 IST every day (03:30 UTC). Edit the cron below to change
+    # the time — cron is always in UTC. IST = UTC + 5:30.
+    - cron: "30 3 * * *"
+  workflow_dispatch: {}   # lets you trigger a run manually from the Actions tab
+
+permissions:
+  contents: write   # needed so the workflow can commit applied_jobs.csv back
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run the bot
+        env:
+          NAUKRI_EMAIL: ${{ secrets.NAUKRI_EMAIL }}
+          NAUKRI_PASSWORD: ${{ secrets.NAUKRI_PASSWORD }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python runBot.py
+
+      - name: Upload logs and CSVs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: naukri-run-${{ github.run_number }}
+          path: |
+            logs/
+            all excels/
+          retention-days: 14
+
+      - name: Commit updated applied/failed job history
+        if: always()
+        run: |
+          git config user.name "naukri-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add "all excels/applied_jobs.csv" "all excels/failed_jobs.csv" || true
+          git diff --cached --quiet || git commit -m "Update job history [skip ci]"
+          git push || true
