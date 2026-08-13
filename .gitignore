@@ -12,6 +12,9 @@ logs/*.log
 venv/
 .venv/
 
+# Session cookies — never commit, these are live credentials
+storage_state.json
+
 # OS
 .DS_Store
 Thumbs.db

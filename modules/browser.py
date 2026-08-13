@@ -6,9 +6,16 @@ Uses Playwright instead of Selenium — no ChromeDriver needed, no version misma
 Install: pip install playwright && python -m playwright install chromium
 '''
 
+import os
 from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext
 from config.settings import run_headless, click_delay
 from modules.helpers import log, random_sleep
+
+# If a saved Playwright storage_state (cookies + localStorage from a prior
+# successful login) exists, we load it into the new context. This lets the
+# bot start already-authenticated in CI, instead of submitting the login
+# form and risking a bot-detection challenge with no one there to clear it.
+STORAGE_STATE_PATH = os.environ.get("NAUKRI_STORAGE_STATE_PATH", "storage_state.json")
 
 
 _playwright = None
@@ -37,7 +44,7 @@ def launch_browser() -> Page:
         slow_mo=click_delay * 300,   # slow_mo in ms for human-like pacing
     )
 
-    _context = _browser.new_context(
+    context_kwargs = dict(
         viewport={"width": 1366, "height": 768},
         user_agent=(
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -46,6 +53,14 @@ def launch_browser() -> Page:
         ),
         locale="en-IN",
     )
+
+    if os.path.exists(STORAGE_STATE_PATH):
+        log.info(f"Loading saved session from {STORAGE_STATE_PATH} (skipping login form).")
+        context_kwargs["storage_state"] = STORAGE_STATE_PATH
+    else:
+        log.info("No saved session found — will use the login form.")
+
+    _context = _browser.new_context(**context_kwargs)
 
     # Mask webdriver fingerprint
     _context.add_init_script("""

@@ -115,4 +115,22 @@ def login(page: Page) -> bool:
 
     except Exception as e:
         log.error(f"Login error: {e}")
+        _dump_debug_state(page)
         return False
+
+
+def _dump_debug_state(page: Page) -> None:
+    '''
+    Saves a screenshot + HTML snapshot of whatever page we were actually on
+    when login failed, so a failure in CI (where no one can watch the
+    browser live) can still be diagnosed after the fact from the uploaded
+    logs/ artifact.
+    '''
+    try:
+        os.makedirs("logs", exist_ok=True)
+        page.screenshot(path="logs/login_failure.png", full_page=True)
+        with open("logs/login_failure.html", "w", encoding="utf-8") as f:
+            f.write(page.content())
+        log.info(f"Saved debug snapshot: logs/login_failure.png (url was {page.url})")
+    except Exception as dump_err:
+        log.warning(f"Could not save debug snapshot: {dump_err}")

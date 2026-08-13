@@ -30,6 +30,17 @@ jobs:
       - name: Install Playwright Chromium
         run: python -m playwright install --with-deps chromium
 
+      - name: Restore saved login session (if configured)
+        env:
+          NAUKRI_STORAGE_STATE: ${{ secrets.NAUKRI_STORAGE_STATE }}
+        run: |
+          if [ -n "$NAUKRI_STORAGE_STATE" ]; then
+            echo "$NAUKRI_STORAGE_STATE" > storage_state.json
+            echo "Restored storage_state.json from secret."
+          else
+            echo "NAUKRI_STORAGE_STATE secret not set — bot will use the login form."
+          fi
+
       - name: Run the bot
         env:
           NAUKRI_EMAIL: ${{ secrets.NAUKRI_EMAIL }}
